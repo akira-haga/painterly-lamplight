@@ -2,6 +2,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useMemo } from "react";
 import { pass } from "three/tsl";
 import * as THREE from "three/webgpu";
+import { tensorPass } from "../effects/TensorNode";
 
 export function Scene() {
   const gl = useThree((s) => s.gl) as unknown as THREE.WebGPURenderer;
@@ -10,7 +11,9 @@ export function Scene() {
 
   const renderPipeline = useMemo(() => {
     const scenePass = pass(scene, camera);
-    return new THREE.RenderPipeline(gl, scenePass);
+    const color = scenePass.getTextureNode("output");
+    const tensor = tensorPass(color);
+    return new THREE.RenderPipeline(gl, tensor);
   }, [gl, scene, camera]);
 
   useFrame(() => {
