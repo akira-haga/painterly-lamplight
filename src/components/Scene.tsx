@@ -2,7 +2,9 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useMemo } from "react";
 import { pass } from "three/tsl";
 import * as THREE from "three/webgpu";
+import { gaussianBlur } from "three/addons/tsl/display/GaussianBlurNode.js";
 import { tensorPass } from "../effects/TensorNode";
+import { kuwaharaPass } from "../effects/KuwaharaNode";
 
 export function Scene() {
   const gl = useThree((s) => s.gl) as unknown as THREE.WebGPURenderer;
@@ -12,8 +14,9 @@ export function Scene() {
   const renderPipeline = useMemo(() => {
     const scenePass = pass(scene, camera);
     const color = scenePass.getTextureNode("output");
-    const tensor = tensorPass(color);
-    return new THREE.RenderPipeline(gl, tensor);
+    const tensor = gaussianBlur(tensorPass(color), 1, 2);
+    const kuwahara = kuwaharaPass(color, tensor);
+    return new THREE.RenderPipeline(gl, kuwahara);
   }, [gl, scene, camera]);
 
   useFrame(() => {
