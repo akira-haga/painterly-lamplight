@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { pass, rtt } from "three/tsl";
 import * as THREE from "three/webgpu";
 import { gaussianBlur } from "three/addons/tsl/display/GaussianBlurNode.js";
+import { grainPass } from "../effects/GrainNode";
 import { tensorPass } from "../effects/TensorNode";
 import { kuwaharaPass } from "../effects/KuwaharaNode";
 import { outlinePass } from "../effects/OutlineNode";
@@ -25,8 +26,13 @@ export function Scene() {
     const scenePass = pass(scene, camera);
     const color = scenePass.getTextureNode("output");
     const depth = scenePass.getTextureNode("depth");
-    const tensor = gaussianBlur(tensorPass(color), 1, 2);
-    const kuwahara = kuwaharaPass(color, tensor);
+    // Nearest keeps the 1px grain intact when Kuwahara reads between pixels.
+    const grainedColor = rtt(grainPass(color), null, null, {
+      minFilter: THREE.NearestFilter,
+      magFilter: THREE.NearestFilter,
+    });
+    const tensor = gaussianBlur(tensorPass(grainedColor), 1, 2);
+    const kuwahara = kuwaharaPass(grainedColor, tensor);
     const outline = outlinePass(
       rtt(kuwahara),
       depth,
