@@ -71,14 +71,36 @@ export function useSceneControls(nodes: SceneNodes, invalidate: () => void) {
     invalidate();
   };
 
-  const applyBrushStrength = (enabled: boolean, strength: number) =>
-    update(brushNode.strength, enabled ? strength : 0);
+  const applyBrushStrength = (
+    enabled: boolean,
+    strength: number,
+    quality: string,
+  ) => update(brushNode.strength, enabled && quality !== "low" ? strength : 0);
+
+  const applyRadius = (radius: number, quality: string) =>
+    update(
+      kuwaharaNode.radius,
+      quality === "low" ? Math.min(radius, 4) : radius,
+    );
 
   const applyOutlineStrength = (enabled: boolean, strength: number) =>
     update(outlineNode.strength, enabled ? strength : 0);
 
-  const [{ brushEnabled }] = useControls(
+  const [{ brushEnabled, quality }, setControls] = useControls(
     () => ({
+      quality: {
+        value: "auto",
+        options: { auto: "auto", normal: "normal", low: "low" },
+        transient: false,
+        onChange: (value: string, _path, context) => {
+          applyRadius(context.get("radius"), value);
+          applyBrushStrength(
+            context.get("brush.brushEnabled"),
+            context.get("brush.brushStrength"),
+            value,
+          );
+        },
+      },
       passes: folder({
         tensorEnabled: {
           value: true,
@@ -132,7 +154,8 @@ export function useSceneControls(nodes: SceneNodes, invalidate: () => void) {
         min: 1,
         max: 20,
         step: 1,
-        onChange: (value: number) => update(kuwaharaNode.radius, value),
+        onChange: (value: number, _path, context) =>
+          applyRadius(value, context.get("quality")),
       },
       grainAmount: {
         value: 0.03,
@@ -320,7 +343,11 @@ export function useSceneControls(nodes: SceneNodes, invalidate: () => void) {
           label: "enabled",
           transient: false,
           onChange: (value: boolean, _path, context) =>
-            applyBrushStrength(value, context.get("brush.brushStrength")),
+            applyBrushStrength(
+              value,
+              context.get("brush.brushStrength"),
+              context.get("quality"),
+            ),
         },
         brushColor: {
           value: "#D9633F",
@@ -358,7 +385,11 @@ export function useSceneControls(nodes: SceneNodes, invalidate: () => void) {
           step: 0.05,
           label: "strength",
           onChange: (value: number, _path, context) =>
-            applyBrushStrength(context.get("brush.brushEnabled"), value),
+            applyBrushStrength(
+              context.get("brush.brushEnabled"),
+              value,
+              context.get("quality"),
+            ),
         },
         brushBreakAmount: {
           value: 0.35,
@@ -381,5 +412,5 @@ export function useSceneControls(nodes: SceneNodes, invalidate: () => void) {
     [nodes],
   );
 
-  return { brushEnabled };
+  return { brushEnabled, quality, setControls };
 }
