@@ -32,7 +32,7 @@ function App() {
   const handleEntered = useCallback(() => setEntered(true), []);
 
   return (
-    <div className="h-screen w-full">
+    <div className="h-dvh w-full">
       <Canvas
         flat
         frameloop="demand"

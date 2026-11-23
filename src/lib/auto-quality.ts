@@ -13,53 +13,51 @@ export function createQualityProbe(
 ) {
   const samples: number[] = [];
   let frames = 0;
-  let coveredFrames = 0;
   let pending = false;
-  let done = false;
+  let verdict: [QualityLevel, number] | null = null;
 
-  const finish = () => {
-    done = true;
+  const finish = (level: QualityLevel, medianMs: number) => {
+    verdict = [level, medianMs];
     (
       renderer.backend as unknown as { trackTimestamp: boolean }
     ).trackTimestamp = false;
+    onResult(level, medianMs);
   };
 
   return () => {
-    if (done) return;
+    if (verdict) {
+      onResult(...verdict);
+      return;
+    }
     frames++;
-    coveredFrames++;
     if (pending) return;
 
     pending = true;
-    const includedFrames = coveredFrames;
-    coveredFrames = 0;
 
-    renderer
-      .resolveTimestampsAsync(THREE.TimestampQuery.RENDER)
-      .then(() => {
+    renderer.resolveTimestampsAsync(THREE.TimestampQuery.RENDER).then(
+      (frameMs = 0) => {
         pending = false;
 
-        const totalMs = renderer.info.render.timestamp;
-        if (frames > WARMUP_FRAMES && totalMs > 0 && includedFrames > 0) {
-          samples.push(totalMs / includedFrames);
+        if (frames > WARMUP_FRAMES && frameMs > 0) {
+          samples.push(frameMs);
         }
 
         if (samples.length === 0 && frames > WARMUP_FRAMES + GIVE_UP_FRAMES) {
-          finish();
           console.warn("auto-quality: no GPU timestamps, keeping full quality");
+          finish("normal", 0);
           return;
         }
 
         if (samples.length >= SAMPLE_FRAMES) {
-          finish();
           const sorted = [...samples].sort((a, b) => a - b);
           const medianMs = sorted[Math.floor(sorted.length / 2)];
-          onResult(medianMs > LOW_FRAME_MS ? "low" : "normal", medianMs);
+          finish(medianMs > LOW_FRAME_MS ? "low" : "normal", medianMs);
         }
-      })
-      .catch(() => {
+      },
+      () => {
         pending = false;
-        finish();
-      });
+        finish("normal", 0);
+      },
+    );
   };
 }
