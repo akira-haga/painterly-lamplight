@@ -46,7 +46,7 @@ const sobelGradient = (
   return vec2(gradientX, gradientY);
 };
 
-export class OutlineNode extends THREE.Node {
+export class OutlineNode extends THREE.Node<"vec4"> {
   colorNode: THREE.TextureNode;
   depthNode: THREE.TextureNode;
   cameraNear: THREE.UniformNode<"float", number>;

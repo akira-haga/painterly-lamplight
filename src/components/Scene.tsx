@@ -1,4 +1,5 @@
 import { useFrame, useThree } from "@react-three/fiber";
+import { useTexture } from "@react-three/drei";
 import { useMemo } from "react";
 import { pass, rtt } from "three/tsl";
 import * as THREE from "three/webgpu";
@@ -6,11 +7,19 @@ import { gaussianBlur } from "three/addons/tsl/display/GaussianBlurNode.js";
 import { tensorPass } from "../effects/TensorNode";
 import { kuwaharaPass } from "../effects/KuwaharaNode";
 import { outlinePass } from "../effects/OutlineNode";
+import { finalPass } from "../effects/FinalNode";
 
 export function Scene() {
   const gl = useThree((s) => s.gl) as unknown as THREE.WebGPURenderer;
   const scene = useThree((s) => s.scene);
   const camera = useThree((s) => s.camera);
+
+  // https://unsplash.com/photos/vS3idIiYxX0
+  const paperTexture = useTexture("/textures/paper.jpg", (loaded) => {
+    loaded.colorSpace = THREE.NoColorSpace;
+    loaded.wrapS = THREE.RepeatWrapping;
+    loaded.wrapT = THREE.RepeatWrapping;
+  });
 
   const renderPipeline = useMemo(() => {
     const scenePass = pass(scene, camera);
@@ -23,8 +32,11 @@ export function Scene() {
       depth,
       camera as THREE.PerspectiveCamera,
     );
-    return new THREE.RenderPipeline(gl, outline);
-  }, [gl, scene, camera]);
+    const final = finalPass(outline, paperTexture);
+    const pipeline = new THREE.RenderPipeline(gl, final);
+    pipeline.outputColorTransform = false;
+    return pipeline;
+  }, [gl, scene, camera, paperTexture]);
 
   useFrame(() => {
     renderPipeline.render();
