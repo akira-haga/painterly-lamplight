@@ -14,17 +14,17 @@ export class TensorNode extends THREE.Node {
 
     return Fn(() => {
       const texel = vec2(1).div(screenSize);
-      const s = (dx: number, dy: number) =>
+      const sampleAt = (dx: number, dy: number) =>
         inputNode.sample(screenUV.add(vec2(dx, -dy).mul(texel))).rgb;
 
-      const tx0y0 = s(-1, -1);
-      const tx0y1 = s(-1, 0);
-      const tx0y2 = s(-1, 1);
-      const tx1y0 = s(0, -1);
-      const tx1y2 = s(0, 1);
-      const tx2y0 = s(1, -1);
-      const tx2y1 = s(1, 0);
-      const tx2y2 = s(1, 1);
+      const tx0y0 = sampleAt(-1, -1);
+      const tx0y1 = sampleAt(-1, 0);
+      const tx0y2 = sampleAt(-1, 1);
+      const tx1y0 = sampleAt(0, -1);
+      const tx1y2 = sampleAt(0, 1);
+      const tx2y0 = sampleAt(1, -1);
+      const tx2y1 = sampleAt(1, 0);
+      const tx2y2 = sampleAt(1, 1);
 
       const sx = tx0y0
         .negate()
