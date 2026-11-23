@@ -21,6 +21,7 @@ function App() {
       <Canvas
         flat
         frameloop="demand"
+        dpr={[1, 1]}
         camera={{ position: [3, 2, 4], fov: 45 }}
         gl={async (props) => {
           const renderer = new THREE.WebGPURenderer(
