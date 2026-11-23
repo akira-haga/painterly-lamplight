@@ -5,11 +5,12 @@ import { pass, rtt } from "three/tsl";
 import * as THREE from "three/webgpu";
 import { gaussianBlur } from "three/addons/tsl/display/GaussianBlurNode.js";
 import { brushPass, type BrushNode } from "../effects/BrushNode";
-import { grainPass } from "../effects/GrainNode";
+import { grainPass, type GrainNode } from "../effects/GrainNode";
 import { tensorPass } from "../effects/TensorNode";
-import { kuwaharaPass } from "../effects/KuwaharaNode";
-import { outlinePass } from "../effects/OutlineNode";
-import { finalPass } from "../effects/FinalNode";
+import { kuwaharaPass, type KuwaharaNode } from "../effects/KuwaharaNode";
+import { outlinePass, type OutlineNode } from "../effects/OutlineNode";
+import { finalPass, type FinalNode } from "../effects/FinalNode";
+import { useSceneControls } from "./scene-controls";
 
 export function Scene() {
   const gl = useThree((s) => s.gl) as unknown as THREE.WebGPURenderer;
@@ -23,27 +24,45 @@ export function Scene() {
     loaded.wrapT = THREE.RepeatWrapping;
   });
 
-  const { renderPipeline, brushNode } = useMemo(() => {
+  const sceneNodes = useMemo(() => {
     const scenePass = pass(scene, camera);
     const color = scenePass.getTextureNode("output");
     const depth = scenePass.getTextureNode("depth");
     const brushNode = brushPass(color) as unknown as BrushNode;
-    const grainedColor = rtt(grainPass(brushNode), null, null, {
+    const grainNode = grainPass(brushNode) as unknown as GrainNode;
+    const grainedColor = rtt(grainNode, null, null, {
       minFilter: THREE.NearestFilter,
       magFilter: THREE.NearestFilter,
     });
-    const tensor = gaussianBlur(tensorPass(grainedColor), 1, 2);
-    const kuwahara = kuwaharaPass(grainedColor, tensor);
-    const outline = outlinePass(
-      rtt(kuwahara),
+    const tensorNode = gaussianBlur(tensorPass(grainedColor), 1, 2);
+    const kuwaharaNode = kuwaharaPass(
+      grainedColor,
+      tensorNode,
+    ) as unknown as KuwaharaNode;
+    const outlineNode = outlinePass(
+      rtt(kuwaharaNode),
       depth,
       camera as THREE.PerspectiveCamera,
-    );
-    const final = finalPass(outline, paperTexture);
-    const pipeline = new THREE.RenderPipeline(gl, final);
-    pipeline.outputColorTransform = false;
-    return { renderPipeline: pipeline, brushNode };
+    ) as unknown as OutlineNode;
+    const finalNode = finalPass(
+      outlineNode,
+      paperTexture,
+    ) as unknown as FinalNode;
+    const renderPipeline = new THREE.RenderPipeline(gl, finalNode);
+    renderPipeline.outputColorTransform = false;
+    return {
+      renderPipeline,
+      brushNode,
+      grainNode,
+      tensorNode,
+      kuwaharaNode,
+      outlineNode,
+      finalNode,
+    };
   }, [gl, scene, camera, paperTexture]);
+  const { renderPipeline, brushNode } = sceneNodes;
+
+  useSceneControls(sceneNodes);
 
   useEffect(() => {
     const canvas = gl.domElement;
