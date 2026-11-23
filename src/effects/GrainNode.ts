@@ -32,7 +32,6 @@ export class GrainNode extends THREE.Node<"vec4"> {
         .sub(0.5)
         .mul(this.amount.mul(0.5));
 
-      // sqrt ≈ linear → display; squaring back keeps it ≥ 0.
       const displayColor = this.colorNode.rgb.max(0).sqrt();
       const perturbed = displayColor.add(noise).max(0);
       return vec4(perturbed.mul(perturbed), 1);
