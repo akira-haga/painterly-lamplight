@@ -158,10 +158,10 @@ export function useSceneControls(nodes: SceneNodes, invalidate: () => void) {
           applyRadius(value, context.get("quality")),
       },
       grainAmount: {
-        value: 0.03,
+        value: 0.015,
         min: 0,
-        max: 0.3,
-        step: 0.005,
+        max: 0.15,
+        step: 0.0025,
         label: "grain",
         onChange: (value: number) => update(grainNode.amount, value),
       },

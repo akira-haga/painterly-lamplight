@@ -15,7 +15,7 @@ export class GrainNode extends THREE.Node<"vec4"> {
   colorNode: THREE.Node<"vec4">;
   amount: THREE.UniformNode<"float", number>;
 
-  constructor(colorNode: THREE.Node<"vec4">, amount = 0.03) {
+  constructor(colorNode: THREE.Node<"vec4">, amount = 0.015) {
     super("vec4");
     this.colorNode = colorNode;
     this.amount = uniform(amount);
@@ -30,7 +30,7 @@ export class GrainNode extends THREE.Node<"vec4"> {
         whiteNoise(pixelCoord.add(vec2(11, 47))),
       )
         .sub(0.5)
-        .mul(this.amount.mul(0.5));
+        .mul(this.amount);
 
       const displayColor = this.colorNode.rgb.max(0).sqrt();
       const perturbed = displayColor.add(noise).max(0);
@@ -39,5 +39,5 @@ export class GrainNode extends THREE.Node<"vec4"> {
   }
 }
 
-export const grainPass = (colorNode: THREE.Node<"vec4">, amount = 0.03) =>
+export const grainPass = (colorNode: THREE.Node<"vec4">, amount = 0.015) =>
   nodeObject(new GrainNode(colorNode, amount));

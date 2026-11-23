@@ -30,17 +30,14 @@ export class KuwaharaNode extends THREE.Node {
   }
 
   setup() {
-    const colorNode = this.colorNode;
-    const tensorNode = this.tensorNode;
-    const radius = this.radius;
-
     return Fn(() => {
       const texel = vec2(1).div(screenSize);
       const sampleAt = (sampleOffset: THREE.Node<"vec2">) =>
-        colorNode.sample(screenUV.add(sampleOffset.mul(vec2(1, -1)).mul(texel)))
-          .rgb;
+        this.colorNode.sample(
+          screenUV.add(sampleOffset.mul(vec2(1, -1)).mul(texel)),
+        ).rgb;
 
-      const tensor = (tensorNode as THREE.Node<"vec4">).toVar();
+      const tensor = (this.tensorNode as THREE.Node<"vec4">).toVar();
       const jxx = tensor.x;
       const jyy = tensor.y;
       const jxy = tensor.z;
@@ -75,7 +72,7 @@ export class KuwaharaNode extends THREE.Node {
       const weightOffset = float(0.1);
       const weightFalloff = float(0.5);
       const radialSigma = float(0.4);
-      const clampedRadius = radius.max(1);
+      const clampedRadius = this.radius.max(1);
       const radiusSteps = clampedRadius.toInt();
 
       const minVariance = float(10000).toVar();
@@ -84,8 +81,8 @@ export class KuwaharaNode extends THREE.Node {
       const weightedSqSum = vec3(0).toVar();
       const totalWeight = float(0).toVar();
 
-      Loop(8, ({ i }) => {
-        const sectorAngle = float(i)
+      Loop(8, ({ i: sectorIndex }) => {
+        const sectorAngle = float(sectorIndex)
           .mul((Math.PI * 2) / 8)
           .toVar();
 
@@ -93,10 +90,12 @@ export class KuwaharaNode extends THREE.Node {
         weightedSqSum.assign(vec3(0));
         totalWeight.assign(0);
 
-        Loop({ start: 1, end: radiusSteps, condition: "<=" }, ({ i }) => {
-          const r = float(i).toVar();
-          Loop(3, ({ i }) => {
-            const offsetAngle = float(i)
+        Loop(
+          { start: 1, end: radiusSteps, condition: "<=" },
+          { start: 0, end: 3 },
+          ({ i: radiusStep, j: rayIndex }) => {
+            const r = float(radiusStep).toVar();
+            const offsetAngle = float(rayIndex)
               .mul(Math.PI / 8)
               .sub(Math.PI / 8);
             const sampleAngle = sectorAngle.add(offsetAngle);
@@ -133,8 +132,8 @@ export class KuwaharaNode extends THREE.Node {
             weightedSum.addAssign(sampleColor.mul(weight));
             weightedSqSum.addAssign(sampleColor.mul(sampleColor).mul(weight));
             totalWeight.addAssign(weight);
-          });
-        });
+          },
+        );
 
         const avgColor = weightedSum.div(totalWeight);
         const variance = weightedSqSum
