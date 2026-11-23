@@ -266,13 +266,32 @@ export function useSceneControls(nodes: SceneNodes, invalidate: () => void) {
           label: "bias",
           onChange: (value: number) => update(outlineNode.breakBias, value),
         },
+        paperAmount: {
+          value: 0,
+          min: 0,
+          max: 1,
+          step: 0.01,
+          label: "paper",
+          onChange: (value: number) => update(outlineNode.paperAmount, value),
+        },
+        paperThreshold: {
+          value: 0.5,
+          min: 0,
+          max: 1,
+          step: 0.01,
+          label: "paper threshold",
+          onChange: (value: number) =>
+            update(outlineNode.paperThreshold, value),
+        },
       }),
       paper: folder({
         paperTile: {
           value: true,
           label: "tile",
-          onChange: (value: boolean) =>
-            update(finalNode.paperTile, value ? 1 : 0),
+          onChange: (value: boolean) => {
+            update(finalNode.paperTile, value ? 1 : 0);
+            update(outlineNode.paperTile, value ? 1 : 0);
+          },
         },
         paperScale: {
           value: 0.25,
@@ -280,7 +299,10 @@ export function useSceneControls(nodes: SceneNodes, invalidate: () => void) {
           max: 8,
           step: 0.25,
           label: "tile scale",
-          onChange: (value: number) => update(finalNode.paperScale, value),
+          onChange: (value: number) => {
+            update(finalNode.paperScale, value);
+            update(outlineNode.paperScale, value);
+          },
         },
       }),
       final: folder({

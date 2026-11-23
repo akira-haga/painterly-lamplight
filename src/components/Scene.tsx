@@ -57,6 +57,7 @@ export function Scene({
       rtt(kuwaharaNode),
       depth,
       camera as THREE.PerspectiveCamera,
+      paperTexture,
     ) as unknown as OutlineNode;
     const finalNode = finalPass(
       outlineNode,

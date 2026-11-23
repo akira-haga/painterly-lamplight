@@ -8,6 +8,7 @@ import {
   perspectiveDepthToViewZ,
   screenSize,
   screenUV,
+  texture,
   uniform,
   vec2,
   vec3,
@@ -64,11 +65,18 @@ export class OutlineNode extends THREE.Node<"vec4"> {
   breakScale: THREE.UniformNode<"float", number>;
   breakAniso: THREE.UniformNode<"float", number>;
   breakBias: THREE.UniformNode<"float", number>;
+  paperNode: THREE.TextureNode;
+  paperAmount: THREE.UniformNode<"float", number>;
+  paperThreshold: THREE.UniformNode<"float", number>;
+  paperTile: THREE.UniformNode<"float", number>;
+  paperScale: THREE.UniformNode<"float", number>;
+  paperSize: THREE.UniformNode<"vec2", THREE.Vector2>;
 
   constructor(
     colorNode: THREE.TextureNode,
     depthNode: THREE.TextureNode,
     camera: THREE.PerspectiveCamera,
+    paperTexture: THREE.Texture,
   ) {
     super("vec4");
     this.colorNode = colorNode;
@@ -88,6 +96,15 @@ export class OutlineNode extends THREE.Node<"vec4"> {
     this.breakScale = uniform(38);
     this.breakAniso = uniform(0.12);
     this.breakBias = uniform(0.5);
+    this.paperNode = texture(paperTexture);
+    this.paperAmount = uniform(0);
+    this.paperThreshold = uniform(0.5);
+    this.paperTile = uniform(1);
+    this.paperScale = uniform(0.25);
+    const paperImage = paperTexture.image as HTMLImageElement;
+    this.paperSize = uniform(
+      new THREE.Vector2(paperImage.width, paperImage.height),
+    );
   }
 
   setup() {
@@ -108,6 +125,12 @@ export class OutlineNode extends THREE.Node<"vec4"> {
     const breakScale = this.breakScale;
     const breakAniso = this.breakAniso;
     const breakBias = this.breakBias;
+    const paperNode = this.paperNode;
+    const paperAmount = this.paperAmount;
+    const paperThreshold = this.paperThreshold;
+    const paperTile = this.paperTile;
+    const paperScale = this.paperScale;
+    const paperSize = this.paperSize;
 
     return Fn(() => {
       const texel = vec2(1).div(screenSize);
@@ -166,10 +189,21 @@ export class OutlineNode extends THREE.Node<"vec4"> {
       );
 
       const breakThreshold = mix(float(-1), float(0.9), breakAmount);
-      const keepMask = breakNoise.smoothstep(
-        breakThreshold.sub(0.12),
-        breakThreshold.add(0.12),
+      const keepMask = breakNoise
+        .smoothstep(breakThreshold.sub(0.12), breakThreshold.add(0.12))
+        .toVar();
+
+      const paperRepeat = screenSize.div(paperSize.mul(paperScale));
+      const paperUv = mix(screenUV, screenUV.mul(paperRepeat), paperTile);
+      const paperLuma = paperNode
+        .sample(paperUv)
+        .rgb.dot(vec3(0.299, 0.587, 0.114));
+      const paperMask = paperLuma.smoothstep(
+        paperThreshold.sub(0.15),
+        paperThreshold.add(0.15),
       );
+      keepMask.mulAssign(mix(float(1), paperMask, paperAmount));
+
       const resistance = lineMask.mul(breakBias).clamp(0, 1);
       lineMask.mulAssign(mix(keepMask, float(1), resistance));
 
@@ -185,4 +219,5 @@ export const outlinePass = (
   colorNode: THREE.TextureNode,
   depthNode: THREE.TextureNode,
   camera: THREE.PerspectiveCamera,
-) => nodeObject(new OutlineNode(colorNode, depthNode, camera));
+  paperTexture: THREE.Texture,
+) => nodeObject(new OutlineNode(colorNode, depthNode, camera, paperTexture));
