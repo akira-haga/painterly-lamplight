@@ -108,66 +108,42 @@ export class OutlineNode extends THREE.Node<"vec4"> {
   }
 
   setup() {
-    const colorNode = this.colorNode;
-    const depthNode = this.depthNode;
-    const cameraNear = this.cameraNear;
-    const cameraFar = this.cameraFar;
-    const thickness = this.thickness;
-    const wobbleAmount = this.wobbleAmount;
-    const wobbleScale = this.wobbleScale;
-    const depthWeight = this.depthWeight;
-    const lumaWeight = this.lumaWeight;
-    const threshold = this.threshold;
-    const softness = this.softness;
-    const strength = this.strength;
-    const inkColor = this.inkColor;
-    const breakAmount = this.breakAmount;
-    const breakScale = this.breakScale;
-    const breakAniso = this.breakAniso;
-    const breakBias = this.breakBias;
-    const paperNode = this.paperNode;
-    const paperAmount = this.paperAmount;
-    const paperThreshold = this.paperThreshold;
-    const paperTile = this.paperTile;
-    const paperScale = this.paperScale;
-    const paperSize = this.paperSize;
-
     return Fn(() => {
       const texel = vec2(1).div(screenSize);
 
-      const noiseUv = screenUV.mul(wobbleScale);
+      const noiseUv = screenUV.mul(this.wobbleScale);
       const wobbleNoise = mx_fractal_noise_vec3(vec3(noiseUv, 0), 3, 2, 0.5, 1);
-      const wobbleOffset = wobbleNoise.xy.mul(wobbleAmount).mul(texel);
+      const wobbleOffset = wobbleNoise.xy.mul(this.wobbleAmount).mul(texel);
       const wobbledUv = screenUV.add(wobbleOffset).toVar();
       const tapUv = (dx: number, dy: number) =>
-        wobbledUv.add(vec2(dx, -dy).mul(thickness).mul(texel));
+        wobbledUv.add(vec2(dx, -dy).mul(this.thickness).mul(texel));
 
       const distanceAt = (dx: number, dy: number) =>
         perspectiveDepthToViewZ(
-          depthNode.sample(tapUv(dx, dy)).r,
-          cameraNear,
-          cameraFar,
+          this.depthNode.sample(tapUv(dx, dy)).r,
+          this.cameraNear,
+          this.cameraFar,
         ).negate();
       const centerDistance = distanceAt(0, 0).toVar();
       const depthGradient = sobelGradient(distanceAt).div(
         centerDistance.max(1e-4),
       );
       const lumaAt = (dx: number, dy: number) =>
-        colorNode.sample(tapUv(dx, dy)).rgb.dot(vec3(0.299, 0.587, 0.114));
+        this.colorNode.sample(tapUv(dx, dy)).rgb.dot(vec3(0.299, 0.587, 0.114));
       const lumaGradient = sobelGradient(lumaAt);
       const edgeStrength = depthGradient
         .length()
-        .mul(depthWeight)
-        .add(lumaGradient.length().mul(lumaWeight));
+        .mul(this.depthWeight)
+        .add(lumaGradient.length().mul(this.lumaWeight));
       const lineMask = edgeStrength
-        .smoothstep(threshold, threshold.add(softness))
-        .mul(strength)
+        .smoothstep(this.threshold, this.threshold.add(this.softness))
+        .mul(this.strength)
         .clamp(0, 1)
         .toVar();
 
       const combinedGradient = depthGradient
-        .mul(depthWeight)
-        .add(lumaGradient.mul(lumaWeight));
+        .mul(this.depthWeight)
+        .add(lumaGradient.mul(this.lumaWeight));
       const normalDir = combinedGradient.div(
         combinedGradient.length().max(1e-6),
       );
@@ -175,11 +151,11 @@ export class OutlineNode extends THREE.Node<"vec4"> {
 
       const aspect = screenSize.x.div(screenSize.y);
       const aspectUv = vec2(screenUV.x.mul(aspect), screenUV.y.negate());
-      const alongLine = aspectUv.dot(tangentDir).mul(breakScale);
+      const alongLine = aspectUv.dot(tangentDir).mul(this.breakScale);
       const acrossLine = aspectUv
         .dot(normalDir)
-        .mul(breakScale)
-        .mul(breakAniso);
+        .mul(this.breakScale)
+        .mul(this.breakAniso);
       const breakNoise = mx_fractal_noise_float(
         vec3(alongLine, acrossLine, 0),
         3,
@@ -188,27 +164,27 @@ export class OutlineNode extends THREE.Node<"vec4"> {
         1,
       );
 
-      const breakThreshold = mix(float(-1), float(0.9), breakAmount);
+      const breakThreshold = mix(float(-1), float(0.9), this.breakAmount);
       const keepMask = breakNoise
         .smoothstep(breakThreshold.sub(0.12), breakThreshold.add(0.12))
         .toVar();
 
-      const paperRepeat = screenSize.div(paperSize.mul(paperScale));
-      const paperUv = mix(screenUV, screenUV.mul(paperRepeat), paperTile);
-      const paperLuma = paperNode
+      const paperRepeat = screenSize.div(this.paperSize.mul(this.paperScale));
+      const paperUv = mix(screenUV, screenUV.mul(paperRepeat), this.paperTile);
+      const paperLuma = this.paperNode
         .sample(paperUv)
         .rgb.dot(vec3(0.299, 0.587, 0.114));
       const paperMask = paperLuma.smoothstep(
-        paperThreshold.sub(0.15),
-        paperThreshold.add(0.15),
+        this.paperThreshold.sub(0.15),
+        this.paperThreshold.add(0.15),
       );
-      keepMask.mulAssign(mix(float(1), paperMask, paperAmount));
+      keepMask.mulAssign(mix(float(1), paperMask, this.paperAmount));
 
-      const resistance = lineMask.mul(breakBias).clamp(0, 1);
+      const resistance = lineMask.mul(this.breakBias).clamp(0, 1);
       lineMask.mulAssign(mix(keepMask, float(1), resistance));
 
-      const baseColor = colorNode.sample(screenUV).rgb;
-      const inkedColor = mix(baseColor, inkColor, lineMask);
+      const baseColor = this.colorNode.sample(screenUV).rgb;
+      const inkedColor = mix(baseColor, this.inkColor, lineMask);
 
       return vec4(inkedColor, 1);
     })();

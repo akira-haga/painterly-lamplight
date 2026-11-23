@@ -10,12 +10,10 @@ export class TensorNode extends THREE.Node {
   }
 
   setup() {
-    const inputNode = this.inputNode;
-
     return Fn(() => {
       const texel = vec2(1).div(screenSize);
       const sampleAt = (dx: number, dy: number) =>
-        inputNode.sample(screenUV.add(vec2(dx, -dy).mul(texel))).rgb;
+        this.inputNode.sample(screenUV.add(vec2(dx, -dy).mul(texel))).rgb;
 
       const tx0y0 = sampleAt(-1, -1);
       const tx0y1 = sampleAt(-1, 0);

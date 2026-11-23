@@ -1,6 +1,7 @@
 import {
   float,
   Fn,
+  If,
   Loop,
   mix,
   mx_fractal_noise_float,
@@ -22,6 +23,7 @@ export class BrushNode extends THREE.Node<"vec4"> {
   trail: THREE.Vector3[];
   points: THREE.UniformArrayNode<"vec3">;
   now: THREE.UniformNode<"float", number>;
+  hasStroke: THREE.UniformNode<"bool", boolean>;
   lifetime: THREE.UniformNode<"float", number>;
   size: THREE.UniformNode<"float", number>;
   softness: THREE.UniformNode<"float", number>;
@@ -46,68 +48,79 @@ export class BrushNode extends THREE.Node<"vec4"> {
     this.breakAmount = uniform(0.35);
     this.breakScale = uniform(60);
     this.color = uniform(new THREE.Color("#D9633F"));
+    this.hasStroke = uniform(false).onFrameUpdate(() => {
+      const now = performance.now() / 1000;
+      return this.trail.some(
+        (point) => point.z > 0 && now - point.z < this.lifetime.value,
+      );
+    });
   }
 
   setup() {
     return Fn(() => {
       const aspect = screenSize.x.div(screenSize.y);
       const aspectUv = vec2(screenUV.x.mul(aspect), screenUV.y);
-      const coverageMax = float(0).toVar();
+      const paintAlpha = float(0).toVar();
 
-      Loop(TRAIL_LENGTH - 1, ({ i }) => {
-        const newerPoint = this.points.element(i) as THREE.Node<"vec3">;
-        const olderPoint = this.points.element(i.add(1)) as THREE.Node<"vec3">;
+      If(this.hasStroke, () => {
+        const coverageMax = float(0).toVar();
 
-        const isValid = newerPoint.z
-          .greaterThan(0)
-          .and(olderPoint.z.greaterThan(0))
-          .select(float(1), float(0));
+        Loop(TRAIL_LENGTH - 1, ({ i }) => {
+          const newerPoint = this.points.element(i) as THREE.Node<"vec3">;
+          const olderPoint = this.points.element(
+            i.add(1),
+          ) as THREE.Node<"vec3">;
 
-        const fade = this.now
-          .sub(newerPoint.z)
-          .div(this.lifetime.max(0.0001))
-          .oneMinus()
-          .clamp(0, 1);
+          const isValid = newerPoint.z
+            .greaterThan(0)
+            .and(olderPoint.z.greaterThan(0))
+            .select(float(1), float(0));
 
-        const segment = olderPoint.xy.sub(newerPoint.xy);
-        const alongSegment = aspectUv
-          .sub(newerPoint.xy)
-          .dot(segment)
-          .div(segment.dot(segment).max(1e-6))
-          .clamp(0, 1);
-        const distanceToSegment = aspectUv
-          .sub(newerPoint.xy.add(segment.mul(alongSegment)))
-          .length();
+          const fade = this.now
+            .sub(newerPoint.z)
+            .div(this.lifetime.max(0.0001))
+            .oneMinus()
+            .clamp(0, 1);
 
-        const width = this.size.mul(fade.mul(0.65).add(0.35));
-        const innerWidth = width
-          .mul(this.softness.oneMinus())
-          .min(width.sub(1e-5));
-        const coverage = distanceToSegment
-          .smoothstep(innerWidth, width)
-          .oneMinus();
+          const segment = olderPoint.xy.sub(newerPoint.xy);
+          const alongSegment = aspectUv
+            .sub(newerPoint.xy)
+            .dot(segment)
+            .div(segment.dot(segment).max(1e-6))
+            .clamp(0, 1);
+          const distanceToSegment = aspectUv
+            .sub(newerPoint.xy.add(segment.mul(alongSegment)))
+            .length();
 
-        coverageMax.assign(coverageMax.max(coverage.mul(fade).mul(isValid)));
+          const width = this.size.mul(fade.mul(0.65).add(0.35));
+          const innerWidth = width
+            .mul(this.softness.oneMinus())
+            .min(width.sub(1e-5));
+          const coverage = distanceToSegment
+            .smoothstep(innerWidth, width)
+            .oneMinus();
+
+          coverageMax.assign(coverageMax.max(coverage.mul(fade).mul(isValid)));
+        });
+
+        const breakNoise = mx_fractal_noise_float(
+          vec3(aspectUv.mul(this.breakScale), 0),
+          3,
+          2,
+          0.5,
+          1,
+        )
+          .mul(0.5)
+          .add(0.5);
+        const breakMask = mix(
+          float(1),
+          breakNoise.smoothstep(0.35, 0.75),
+          this.breakAmount,
+        );
+        paintAlpha.assign(
+          coverageMax.mul(breakMask).mul(this.strength).clamp(0, 1),
+        );
       });
-
-      const breakNoise = mx_fractal_noise_float(
-        vec3(aspectUv.mul(this.breakScale), 0),
-        3,
-        2,
-        0.5,
-        1,
-      )
-        .mul(0.5)
-        .add(0.5);
-      const breakMask = mix(
-        float(1),
-        breakNoise.smoothstep(0.35, 0.75),
-        this.breakAmount,
-      );
-      const paintAlpha = coverageMax
-        .mul(breakMask)
-        .mul(this.strength)
-        .clamp(0, 1);
 
       return vec4(mix(this.colorNode.rgb, this.color.rgb, paintAlpha), 1);
     })();
