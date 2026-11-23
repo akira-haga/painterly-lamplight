@@ -20,6 +20,7 @@ function App() {
     <div className="h-screen w-full">
       <Canvas
         flat
+        frameloop="demand"
         camera={{ position: [3, 2, 4], fov: 45 }}
         gl={async (props) => {
           const renderer = new THREE.WebGPURenderer(
