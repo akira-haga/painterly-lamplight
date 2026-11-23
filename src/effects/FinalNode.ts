@@ -10,14 +10,11 @@ import {
   step,
   texture,
   uniform,
-  vec2,
   vec3,
   vec4,
 } from "three/tsl";
 import * as THREE from "three/webgpu";
-
-const whiteNoise = (point: THREE.Node<"vec2">) =>
-  point.dot(vec2(12.9898, 78.233)).sin().mul(43758.5453).fract();
+import { whiteNoise } from "./noise";
 
 const acesFilm = (color: THREE.Node<"vec3">) => {
   const numerator = color.mul(color.mul(2.51).add(0.03));
