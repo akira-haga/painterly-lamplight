@@ -1,6 +1,6 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { pass, rtt } from "three/tsl";
 import * as THREE from "three/webgpu";
 import { gaussianBlur } from "three/addons/tsl/display/GaussianBlurNode.js";
@@ -10,12 +10,22 @@ import { tensorPass } from "../effects/TensorNode";
 import { kuwaharaPass, type KuwaharaNode } from "../effects/KuwaharaNode";
 import { outlinePass, type OutlineNode } from "../effects/OutlineNode";
 import { finalPass, type FinalNode } from "../effects/FinalNode";
+import { createQualityProbe } from "../lib/auto-quality";
 import { requestFrames, stopFrames } from "../lib/render-ticker";
 import { useSceneControls } from "./scene-controls";
 
 const BRUSH_FPS = 20;
+const PROBE_FPS = 12;
 
-export function Scene() {
+export type AutoLowInfo = { ms: number; restore: () => void };
+
+export function Scene({
+  onAutoLow,
+  onReady,
+}: {
+  onAutoLow?: (info: AutoLowInfo) => void;
+  onReady?: () => void;
+}) {
   const gl = useThree((s) => s.gl) as unknown as THREE.WebGPURenderer;
   const scene = useThree((s) => s.scene);
   const camera = useThree((s) => s.camera);
@@ -66,10 +76,43 @@ export function Scene() {
   }, [gl, scene, camera, paperTexture]);
   const { renderPipeline, brushNode } = sceneNodes;
 
-  const { brushEnabled } = useSceneControls(sceneNodes, invalidate);
+  const { brushEnabled, quality, setControls } = useSceneControls(
+    sceneNodes,
+    invalidate,
+  );
+  const lowQuality = quality === "low";
+  const isMeasuring = quality === "auto";
+  const hasDrawn = useRef(false);
 
   useEffect(() => {
-    if (!brushEnabled) return;
+    if (!new URLSearchParams(location.search).has("low")) return;
+    setControls({ quality: "low" });
+    onAutoLow?.({ ms: 0, restore: () => setControls({ quality: "normal" }) });
+  }, [setControls, onAutoLow]);
+
+  const probe = useMemo(
+    () =>
+      createQualityProbe(gl, (level, ms) => {
+        console.warn(`auto-quality: GPU ${ms.toFixed(1)}ms/frame → ${level}`);
+        setControls({ quality: level });
+        if (level === "low") {
+          onAutoLow?.({
+            ms,
+            restore: () => setControls({ quality: "normal" }),
+          });
+        }
+      }),
+    [gl, setControls, onAutoLow],
+  );
+
+  useEffect(() => {
+    if (!isMeasuring) return;
+    requestFrames("probe", PROBE_FPS, invalidate);
+    return () => stopFrames("probe");
+  }, [isMeasuring, invalidate]);
+
+  useEffect(() => {
+    if (!brushEnabled || lowQuality) return;
     const canvas = gl.domElement;
     const trail = brushNode.trail;
     const minStep = 0.012;
@@ -99,10 +142,15 @@ export function Scene() {
       canvas.removeEventListener("pointerleave", onLeave);
       stopFrames("brush");
     };
-  }, [gl, brushNode, brushEnabled, invalidate]);
+  }, [gl, brushNode, brushEnabled, lowQuality, invalidate]);
 
   useFrame(() => {
     renderPipeline.render();
+    if (!hasDrawn.current) {
+      hasDrawn.current = true;
+      onReady?.();
+    }
+    if (isMeasuring) probe();
   }, 1);
 
   return (
