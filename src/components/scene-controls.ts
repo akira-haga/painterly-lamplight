@@ -37,7 +37,7 @@ const setOutput = (
   renderPipeline.needsUpdate = true;
 };
 
-export function useSceneControls(nodes: SceneNodes) {
+export function useSceneControls(nodes: SceneNodes, invalidate: () => void) {
   const {
     renderPipeline,
     brushNode,
@@ -48,6 +48,19 @@ export function useSceneControls(nodes: SceneNodes) {
     finalNode,
   } = nodes;
 
+  const update = <T>(uniformNode: THREE.UniformNode<string, T>, value: T) => {
+    setUniform(uniformNode, value);
+    invalidate();
+  };
+
+  const updateColor = (
+    colorNode: THREE.UniformNode<"color", THREE.Color>,
+    value: string,
+  ) => {
+    colorNode.value.set(value);
+    invalidate();
+  };
+
   const applyPasses = (passes: PassToggles) => {
     let outputNode: THREE.Node = grainNode;
     if (passes.tensor) outputNode = tensorNode;
@@ -55,12 +68,16 @@ export function useSceneControls(nodes: SceneNodes) {
     if (passes.outline) outputNode = outlineNode;
     if (passes.final) outputNode = finalNode;
     setOutput(renderPipeline, outputNode, !passes.final);
+    invalidate();
   };
 
-  const applyOutlineStrength = (enabled: boolean, strength: number) =>
-    setUniform(outlineNode.strength, enabled ? strength : 0);
+  const applyBrushStrength = (enabled: boolean, strength: number) =>
+    update(brushNode.strength, enabled ? strength : 0);
 
-  useControls(
+  const applyOutlineStrength = (enabled: boolean, strength: number) =>
+    update(outlineNode.strength, enabled ? strength : 0);
+
+  const [{ brushEnabled }] = useControls(
     () => ({
       passes: folder({
         tensorEnabled: {
@@ -115,7 +132,7 @@ export function useSceneControls(nodes: SceneNodes) {
         min: 1,
         max: 20,
         step: 1,
-        onChange: (value: number) => setUniform(kuwaharaNode.radius, value),
+        onChange: (value: number) => update(kuwaharaNode.radius, value),
       },
       grainAmount: {
         value: 0.03,
@@ -123,7 +140,7 @@ export function useSceneControls(nodes: SceneNodes) {
         max: 0.3,
         step: 0.005,
         label: "grain",
-        onChange: (value: number) => setUniform(grainNode.amount, value),
+        onChange: (value: number) => update(grainNode.amount, value),
       },
       outline: folder({
         thickness: {
@@ -131,7 +148,7 @@ export function useSceneControls(nodes: SceneNodes) {
           min: 0.5,
           max: 6,
           step: 0.1,
-          onChange: (value: number) => setUniform(outlineNode.thickness, value),
+          onChange: (value: number) => update(outlineNode.thickness, value),
         },
         strength: {
           value: 0.85,
@@ -147,8 +164,7 @@ export function useSceneControls(nodes: SceneNodes) {
           max: 4,
           step: 0.05,
           label: "depth",
-          onChange: (value: number) =>
-            setUniform(outlineNode.depthWeight, value),
+          onChange: (value: number) => update(outlineNode.depthWeight, value),
         },
         lumaWeight: {
           value: 1.2,
@@ -156,22 +172,21 @@ export function useSceneControls(nodes: SceneNodes) {
           max: 2,
           step: 0.05,
           label: "luma",
-          onChange: (value: number) =>
-            setUniform(outlineNode.lumaWeight, value),
+          onChange: (value: number) => update(outlineNode.lumaWeight, value),
         },
         threshold: {
           value: 0.08,
           min: 0,
           max: 0.5,
           step: 0.005,
-          onChange: (value: number) => setUniform(outlineNode.threshold, value),
+          onChange: (value: number) => update(outlineNode.threshold, value),
         },
         softness: {
           value: 0.1,
           min: 0.001,
           max: 0.5,
           step: 0.005,
-          onChange: (value: number) => setUniform(outlineNode.softness, value),
+          onChange: (value: number) => update(outlineNode.softness, value),
         },
         wobbleAmount: {
           value: 1.8,
@@ -179,8 +194,7 @@ export function useSceneControls(nodes: SceneNodes) {
           max: 8,
           step: 0.1,
           label: "wobble",
-          onChange: (value: number) =>
-            setUniform(outlineNode.wobbleAmount, value),
+          onChange: (value: number) => update(outlineNode.wobbleAmount, value),
         },
         wobbleScale: {
           value: 6,
@@ -188,13 +202,12 @@ export function useSceneControls(nodes: SceneNodes) {
           max: 40,
           step: 0.5,
           label: "wobble freq",
-          onChange: (value: number) =>
-            setUniform(outlineNode.wobbleScale, value),
+          onChange: (value: number) => update(outlineNode.wobbleScale, value),
         },
         inkColor: {
           value: "#1a1512",
           label: "ink",
-          onChange: (value: string) => outlineNode.inkColor.value.set(value),
+          onChange: (value: string) => updateColor(outlineNode.inkColor, value),
         },
       }),
       "line break-up": folder({
@@ -204,8 +217,7 @@ export function useSceneControls(nodes: SceneNodes) {
           max: 1,
           step: 0.01,
           label: "amount",
-          onChange: (value: number) =>
-            setUniform(outlineNode.breakAmount, value),
+          onChange: (value: number) => update(outlineNode.breakAmount, value),
         },
         breakScale: {
           value: 38,
@@ -213,8 +225,7 @@ export function useSceneControls(nodes: SceneNodes) {
           max: 200,
           step: 1,
           label: "density",
-          onChange: (value: number) =>
-            setUniform(outlineNode.breakScale, value),
+          onChange: (value: number) => update(outlineNode.breakScale, value),
         },
         breakAniso: {
           value: 0.12,
@@ -222,8 +233,7 @@ export function useSceneControls(nodes: SceneNodes) {
           max: 1,
           step: 0.01,
           label: "aniso",
-          onChange: (value: number) =>
-            setUniform(outlineNode.breakAniso, value),
+          onChange: (value: number) => update(outlineNode.breakAniso, value),
         },
         breakBias: {
           value: 0.5,
@@ -231,7 +241,7 @@ export function useSceneControls(nodes: SceneNodes) {
           max: 1,
           step: 0.01,
           label: "bias",
-          onChange: (value: number) => setUniform(outlineNode.breakBias, value),
+          onChange: (value: number) => update(outlineNode.breakBias, value),
         },
       }),
       paper: folder({
@@ -239,7 +249,7 @@ export function useSceneControls(nodes: SceneNodes) {
           value: true,
           label: "tile",
           onChange: (value: boolean) =>
-            setUniform(finalNode.paperTile, value ? 1 : 0),
+            update(finalNode.paperTile, value ? 1 : 0),
         },
         paperScale: {
           value: 0.25,
@@ -247,7 +257,7 @@ export function useSceneControls(nodes: SceneNodes) {
           max: 8,
           step: 0.25,
           label: "tile scale",
-          onChange: (value: number) => setUniform(finalNode.paperScale, value),
+          onChange: (value: number) => update(finalNode.paperScale, value),
         },
       }),
       final: folder({
@@ -257,8 +267,7 @@ export function useSceneControls(nodes: SceneNodes) {
           max: 64,
           step: 1,
           label: "quantize",
-          onChange: (value: number) =>
-            setUniform(finalNode.quantizeLevels, value),
+          onChange: (value: number) => update(finalNode.quantizeLevels, value),
         },
         clampLow: {
           value: 0.2,
@@ -266,7 +275,7 @@ export function useSceneControls(nodes: SceneNodes) {
           max: 0.5,
           step: 0.01,
           label: "clamp low",
-          onChange: (value: number) => setUniform(finalNode.clampLow, value),
+          onChange: (value: number) => update(finalNode.clampLow, value),
         },
         clampHigh: {
           value: 0.7,
@@ -274,7 +283,7 @@ export function useSceneControls(nodes: SceneNodes) {
           max: 1,
           step: 0.01,
           label: "clamp high",
-          onChange: (value: number) => setUniform(finalNode.clampHigh, value),
+          onChange: (value: number) => update(finalNode.clampHigh, value),
         },
         saturation: {
           value: 0.75,
@@ -282,7 +291,7 @@ export function useSceneControls(nodes: SceneNodes) {
           max: 2,
           step: 0.05,
           label: "sat",
-          onChange: (value: number) => setUniform(finalNode.saturation, value),
+          onChange: (value: number) => update(finalNode.saturation, value),
         },
         ditherAmount: {
           value: 1,
@@ -290,27 +299,33 @@ export function useSceneControls(nodes: SceneNodes) {
           max: 2,
           step: 0.05,
           label: "dither",
-          onChange: (value: number) =>
-            setUniform(finalNode.ditherAmount, value),
+          onChange: (value: number) => update(finalNode.ditherAmount, value),
         },
         perChannel: {
           value: true,
           label: "per channel",
           onChange: (value: boolean) =>
-            setUniform(finalNode.perChannel, value ? 1 : 0),
+            update(finalNode.perChannel, value ? 1 : 0),
         },
         satTowardWhite: {
           value: true,
           label: "sat toward white",
           onChange: (value: boolean) =>
-            setUniform(finalNode.satTowardWhite, value ? 1 : 0),
+            update(finalNode.satTowardWhite, value ? 1 : 0),
         },
       }),
       brush: folder({
+        brushEnabled: {
+          value: true,
+          label: "enabled",
+          transient: false,
+          onChange: (value: boolean, _path, context) =>
+            applyBrushStrength(value, context.get("brush.brushStrength")),
+        },
         brushColor: {
           value: "#D9633F",
           label: "color",
-          onChange: (value: string) => brushNode.color.value.set(value),
+          onChange: (value: string) => updateColor(brushNode.color, value),
         },
         brushSize: {
           value: 0.035,
@@ -318,7 +333,7 @@ export function useSceneControls(nodes: SceneNodes) {
           max: 0.2,
           step: 0.005,
           label: "size",
-          onChange: (value: number) => setUniform(brushNode.size, value),
+          onChange: (value: number) => update(brushNode.size, value),
         },
         brushSoftness: {
           value: 0.6,
@@ -326,7 +341,7 @@ export function useSceneControls(nodes: SceneNodes) {
           max: 1,
           step: 0.05,
           label: "softness",
-          onChange: (value: number) => setUniform(brushNode.softness, value),
+          onChange: (value: number) => update(brushNode.softness, value),
         },
         brushLifetime: {
           value: 0.6,
@@ -334,7 +349,7 @@ export function useSceneControls(nodes: SceneNodes) {
           max: 5,
           step: 0.1,
           label: "lifetime",
-          onChange: (value: number) => setUniform(brushNode.lifetime, value),
+          onChange: (value: number) => update(brushNode.lifetime, value),
         },
         brushStrength: {
           value: 0.9,
@@ -342,7 +357,8 @@ export function useSceneControls(nodes: SceneNodes) {
           max: 1,
           step: 0.05,
           label: "strength",
-          onChange: (value: number) => setUniform(brushNode.strength, value),
+          onChange: (value: number, _path, context) =>
+            applyBrushStrength(context.get("brush.brushEnabled"), value),
         },
         brushBreakAmount: {
           value: 0.35,
@@ -350,7 +366,7 @@ export function useSceneControls(nodes: SceneNodes) {
           max: 1,
           step: 0.05,
           label: "break-up",
-          onChange: (value: number) => setUniform(brushNode.breakAmount, value),
+          onChange: (value: number) => update(brushNode.breakAmount, value),
         },
         brushBreakScale: {
           value: 60,
@@ -358,10 +374,12 @@ export function useSceneControls(nodes: SceneNodes) {
           max: 200,
           step: 5,
           label: "break scale",
-          onChange: (value: number) => setUniform(brushNode.breakScale, value),
+          onChange: (value: number) => update(brushNode.breakScale, value),
         },
       }),
     }),
     [nodes],
   );
+
+  return { brushEnabled };
 }

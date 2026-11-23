@@ -10,12 +10,16 @@ import { tensorPass } from "../effects/TensorNode";
 import { kuwaharaPass, type KuwaharaNode } from "../effects/KuwaharaNode";
 import { outlinePass, type OutlineNode } from "../effects/OutlineNode";
 import { finalPass, type FinalNode } from "../effects/FinalNode";
+import { requestFrames, stopFrames } from "../lib/render-ticker";
 import { useSceneControls } from "./scene-controls";
+
+const BRUSH_FPS = 20;
 
 export function Scene() {
   const gl = useThree((s) => s.gl) as unknown as THREE.WebGPURenderer;
   const scene = useThree((s) => s.scene);
   const camera = useThree((s) => s.camera);
+  const invalidate = useThree((s) => s.invalidate);
 
   // https://unsplash.com/photos/vS3idIiYxX0
   const paperTexture = useTexture("/textures/paper.jpg", (loaded) => {
@@ -62,9 +66,10 @@ export function Scene() {
   }, [gl, scene, camera, paperTexture]);
   const { renderPipeline, brushNode } = sceneNodes;
 
-  useSceneControls(sceneNodes);
+  const { brushEnabled } = useSceneControls(sceneNodes, invalidate);
 
   useEffect(() => {
+    if (!brushEnabled) return;
     const canvas = gl.domElement;
     const trail = brushNode.trail;
     const minStep = 0.012;
@@ -82,6 +87,7 @@ export function Scene() {
       const head = trail[0];
       if (head.z > 0 && Math.hypot(x - head.x, y - head.y) < minStep) return;
       pushPoint(x, y, performance.now() / 1000);
+      requestFrames("brush", BRUSH_FPS, invalidate, brushNode.lifetime.value);
     };
 
     const onLeave = () => pushPoint(0, 0, -1);
@@ -91,8 +97,9 @@ export function Scene() {
     return () => {
       canvas.removeEventListener("pointermove", onMove);
       canvas.removeEventListener("pointerleave", onLeave);
+      stopFrames("brush");
     };
-  }, [gl, brushNode]);
+  }, [gl, brushNode, brushEnabled, invalidate]);
 
   useFrame(() => {
     renderPipeline.render();
