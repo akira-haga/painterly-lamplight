@@ -94,7 +94,9 @@ export function Scene({
   const probe = useMemo(
     () =>
       createQualityProbe(gl, (level, ms) => {
-        console.warn(`auto-quality: GPU ${ms.toFixed(1)}ms/frame → ${level}`);
+        if (ms > 0) {
+          console.warn(`auto-quality: GPU ${ms.toFixed(1)}ms/frame → ${level}`);
+        }
         setControls({ quality: level });
         if (level === "low") {
           onAutoLow?.({

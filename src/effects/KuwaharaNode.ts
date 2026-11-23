@@ -75,7 +75,8 @@ export class KuwaharaNode extends THREE.Node {
       const weightOffset = float(0.1);
       const weightFalloff = float(0.5);
       const radialSigma = float(0.4);
-      const radiusSteps = radius.max(1).toInt();
+      const clampedRadius = radius.max(1);
+      const radiusSteps = clampedRadius.toInt();
 
       const minVariance = float(10000).toVar();
       const finalColor = vec3(0).toVar();
@@ -117,7 +118,7 @@ export class KuwaharaNode extends THREE.Node {
 
             const sampleColor = sampleAt(sampleOffset);
             const sectorPos = vec2(offsetAngle.cos(), offsetAngle.sin()).mul(
-              r.div(radius),
+              r.div(clampedRadius),
             );
             const weightBase = sectorPos.x
               .add(weightOffset)
