@@ -13,6 +13,7 @@ import { finalPass, type FinalNode } from "../effects/FinalNode";
 import { createQualityProbe } from "../lib/auto-quality";
 import { requestFrames, stopFrames } from "../lib/render-ticker";
 import { useSceneControls } from "./scene-controls";
+import { Model } from "./Model";
 
 const BRUSH_FPS = 20;
 const PROBE_FPS = 12;
@@ -156,14 +157,5 @@ export function Scene({
     if (isMeasuring) probe();
   }, 1);
 
-  return (
-    <>
-      <ambientLight intensity={0.5} />
-      <directionalLight position={[3, 5, 2]} intensity={2} />
-      <mesh>
-        <boxGeometry />
-        <meshStandardMaterial color="#c8a27a" />
-      </mesh>
-    </>
-  );
+  return <Model />;
 }

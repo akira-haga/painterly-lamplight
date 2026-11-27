@@ -37,7 +37,7 @@ function App() {
         flat
         frameloop="demand"
         dpr={[1, 1]}
-        camera={{ position: [3, 2, 4], fov: 45 }}
+        camera={{ position: [10, 4, 10], fov: 22.9 }}
         gl={async (props) => {
           const forceWebGL = new URLSearchParams(location.search).has("webgl");
           const renderer = new THREE.WebGPURenderer({
