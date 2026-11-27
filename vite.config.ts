@@ -7,5 +7,8 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     open: true,
+    watch: {
+      ignored: ["**/_3d_assets/**"],
+    },
   },
 });
